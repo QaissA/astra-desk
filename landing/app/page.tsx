@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowRight, Check, Download, Gamepad2, Zap } from "lucide-react";
+import { guides } from "./guides";
 import { HScroll, Img, Keycaps, Magnetic, Parallax, Reveal, RotatingWord, SpotCard, SplitWords, Tilt, Timeline, DonatePopup } from "./client";
 
 // Change this if the .exe is hosted elsewhere (e.g. a GitHub release URL).
@@ -119,6 +120,8 @@ export default function Home() {
             <div>
               <Reveal><Eyebrow>Free for Windows 11</Eyebrow></Reveal>
               <h1 className="mt-7 text-[clamp(2.8rem,7vw,5.6rem)] font-black">
+                {/* keyword line: the big words below say nothing to search engines */}
+                <span className="mb-4 block font-sans text-base font-semibold tracking-normal text-mauve md:text-lg">Animated wallpapers &amp; a custom taskbar for Windows 11</span>
                 <SplitWords text="Your desktop," delay={0.1} />
                 <br />
                 <SplitWords text="but" delay={0.3} /><RotatingWord words={["alive.", "dreamy.", "yours.", "cozy.", "louder."]} />
@@ -301,6 +304,9 @@ export default function Home() {
       <footer className="border-t border-white/10 py-9 text-sm text-mauve">
         <div className="mx-auto flex w-[min(1200px,100%-32px)] flex-wrap justify-between gap-4">
           <span>© 2026 Astra Desk</span>
+          <nav aria-label="Guides" className="flex flex-wrap gap-x-6 gap-y-2">
+            {guides.map((g) => <a key={g.slug} href={`/${g.slug}`} className="hover:text-cream">{g.nav}</a>)}
+          </nav>
           <span>Not affiliated with Microsoft. Windows is a trademark of Microsoft Corporation.</span>
         </div>
       </footer>

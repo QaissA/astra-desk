@@ -239,6 +239,9 @@ export function Img(props: ImgHTMLAttributes<HTMLImageElement>) {
     const img = ref.current;
     if (img?.complete && img.naturalWidth === 0) img.hidden = true; // error fired before hydration
   }, []);
+  // phones get the 800px copy (public/images/*-800.webp, made with sharp); 1600w is nominal for the originals
+  const src = typeof props.src === "string" && /^\/images\/[\w-]+\.webp$/.test(props.src) ? props.src : null;
+  const responsive = src ? { srcSet: `${src.replace(".webp", "-800.webp")} 800w, ${src} 1600w`, sizes: "(min-width: 1024px) 50vw, 100vw" } : {};
   // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-  return <img ref={ref} {...props} onError={(e) => { e.currentTarget.hidden = true; }} />;
+  return <img ref={ref} {...responsive} {...props} onError={(e) => { e.currentTarget.hidden = true; }} />;
 }
