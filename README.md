@@ -1,5 +1,7 @@
 # Astra Desk
 
+**🌐 Website & download: [astra-desk.xyz](https://www.astra-desk.xyz)**
+
 Make Windows 11 yours: a transparent custom taskbar, animated (anime) wallpapers with effects, a desktop clock, an animated
 screensaver, and one-click window layouts, in a futuristic settings app.
 
