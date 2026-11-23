@@ -193,6 +193,11 @@ input[type=range]::-webkit-slider-thumb { appearance: none; width: 18px; height:
 
 #toast { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 20px); opacity: 0; padding: 10px 18px; border-radius: 10px; pointer-events: none; transition: .2s; background: rgba(40, 6, 20, .9); border: 1px solid #ff5c8a; color: #ffd1de; font: 12px var(--mono); box-shadow: 0 0 20px rgba(255, 92, 138, .4); }
 #toast.show { transform: translate(-50%, 0); opacity: 1; }
+.update { all: unset; box-sizing: border-box; display: block; width: 100%; margin-top: 10px; padding: 9px 12px; border-radius: 12px; cursor: pointer; text-align: center;
+  color: var(--text); border: 1px solid var(--line-hi); background: rgba(34, 211, 255, .08); }
+.update:hover { box-shadow: var(--glow); }
+.update:focus-visible { outline: 1.5px solid var(--cyan); outline-offset: 2px; }
+.update[hidden] { display: none; }
 .ver { margin-top: 10px; text-align: center; font: 10px var(--mono); color: var(--muted); opacity: .7; }
 .keys li { justify-content: space-between; }
 .keys kbd { font: 12px "Cascadia Mono", Consolas, monospace; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line-hi); background: rgba(34, 228, 255, .06); color: var(--cyan); }
@@ -227,6 +232,7 @@ input[type=range]::-webkit-slider-thumb { appearance: none; width: 18px; height:
   </nav>
   <div class="foot">Runs in the tray. Right-click the custom bar for the menu.
     <button class="quit" id="quit" title="Stops the wallpaper and custom bar and brings back the Windows taskbar">⏻&nbsp; Quit Astra Desk</button>
+    <button class="update" id="update" hidden title="Downloads the new installer from astra-desk.xyz">⬆ Update</button>
     <div class="ver" id="ver"></div>
   </div>
 </aside>
@@ -515,6 +521,7 @@ $$('[data-svmin]').forEach(b => b.onclick = () => send('saver', { minutes: +b.da
 const closeWelcome = () => { $('#welcome').hidden = true; send('welcomed'); };
 $('#wDone').onclick = closeWelcome;
 $$('[data-wgo]').forEach(b => b.onclick = () => { closeWelcome(); $(`nav [data-go="${b.dataset.wgo}"]`).click(); });
+$('#update').onclick = () => send('update');
 // quit needs a second click within 4 s, so it can't happen by accident
 $('#quit').onclick = () => {
   const b = $('#quit');
@@ -616,6 +623,8 @@ function render(s) {
   // shortcuts, version, welcome
   $('#keyList').innerHTML = s.shortcuts.map(k => `<li><span class="name">${esc(k.action)}</span>${k.ok ? `<kbd>${esc(k.keys)}</kbd>` : `<span class="na">${esc(k.keys)} · used by another app</span>`}</li>`).join('');
   $('#ver').textContent = `v${s.version}${s.installed ? '' : ' · not installed'}`;
+  $('#update').hidden = !s.update;
+  if (s.update) $('#update').textContent = `⬆ Update to v${s.update}`;
   if (!s.welcomed && !render.welcomeShown) { render.welcomeShown = true; $('#welcome').hidden = false; $('#wDone').focus(); }
   if (s.previewUrl !== lastWall) { // only reload the preview when the look changes, so the video keeps playing
     lastWall = s.previewUrl;

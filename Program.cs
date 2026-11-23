@@ -180,6 +180,33 @@ static class Screensaver
 }
 
 /// Per-user install to %LOCALAPPDATA%\Programs\DesktopStyler with Start menu / desktop shortcuts and an entry in
+/// Checks astra-desk.xyz for a newer version. The user downloads and runs the installer; nothing installs silently.
+static class Updater
+{
+    public const string DownloadUrl = "https://www.astra-desk.xyz/downloads/AstraDesk-Setup.exe";
+    const string VersionUrl = "https://www.astra-desk.xyz/version.txt"; // written by tools\publish.ps1
+    public static string Latest { get; private set; } // newer version on the site, or null
+
+    public static bool IsNewer(string latest, string current) =>
+        System.Version.TryParse(latest?.Trim(), out var l) && System.Version.TryParse(current, out var c) && l > c;
+
+    /// True only the first time a given newer version is seen, so the balloon doesn't repeat every day.
+    public static async Task<bool> Check()
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            var v = (await http.GetStringAsync(VersionUrl)).Trim();
+            if (!IsNewer(v, Installer.Version) || v == Latest) return false;
+            Latest = v;
+            return true;
+        }
+        catch (Exception e) { WallpaperHost.Log("update check failed: " + e.Message); return false; } // offline is normal
+    }
+
+    public static void Download() => Process.Start(new ProcessStartInfo(DownloadUrl) { UseShellExecute = true });
+}
+
 /// Settings > Apps (no admin rights needed). Uninstall puts Windows back the way it was.
 static class Installer
 {
@@ -328,6 +355,7 @@ class App : ApplicationContext
     readonly List<Bar> bars = new(); // one custom bar per screen
     readonly System.Windows.Forms.Timer pauseTimer = new() { Interval = 2000 };
     readonly System.Windows.Forms.Timer playlistTimer = new();
+    readonly System.Windows.Forms.Timer updateTimer = new() { Interval = 60_000 }; // first check a minute after start, then daily
     readonly Random random = new();
     readonly Hotkeys hotkeys;
     MainForm form;
@@ -363,6 +391,15 @@ class App : ApplicationContext
         m.Add(new ToolStripSeparator());
         m.Add("Quit Astra Desk", null, (_, _) => Quit());
         tray.DoubleClick += (_, _) => ShowForm();
+        tray.BalloonTipClicked += (_, _) => { if (Updater.Latest != null) Updater.Download(); };
+        updateTimer.Tick += async (_, _) =>
+        {
+            updateTimer.Interval = 24 * 60 * 60 * 1000;
+            if (!await Updater.Check()) return;
+            tray.ShowBalloonTip(10_000, $"Astra Desk {Updater.Latest} is available", "Click here to download the update.", ToolTipIcon.Info);
+            Changed?.Invoke();
+        };
+        updateTimer.Start();
 
         hotkeys = new Hotkeys([
             (Keys.W, "Next wallpaper", NextWallpaper),
@@ -638,6 +675,7 @@ class MainForm : Form
                 case "open": OpenLink(Str("url")); break;
                 case "browse": Browse(Str("site")); break;
                 case "quit": app.Quit(); return;
+                case "update": Updater.Download(); return;
                 case "lockNow": LockNow(); return;
                 case "lockSync":
                     s.LockSync = On(); s.Save();
@@ -717,7 +755,7 @@ class MainForm : Form
             playlistFolder = app.PlaylistFolder, playlistCount = app.PlaylistFiles().Count, s.PlaylistMinutes, s.PlaylistShuffle,
             s.ScreensaverOn, s.ScreensaverMinutes, s.ScreensaverLock, s.Welcomed,
             shortcuts = app.Shortcuts.Select(k => new { keys = k.Keys, action = k.Action, ok = k.Ok }),
-            version = Installer.Version, installed = Installer.IsInstalled, screens = Display.All().Count,
+            version = Installer.Version, update = Updater.Latest, installed = Installer.IsInstalled, screens = Display.All().Count,
             iconsVisible = Tweaks.DesktopIconsVisible, dark = Tweaks.IsDark, startup = Tweaks.StartsWithWindows, error,
             hasPexels = !string.IsNullOrEmpty(s.PexelsKey), hasPixabay = !string.IsNullOrEmpty(s.PixabayKey), // keys never go to the page
         };
@@ -2383,6 +2421,8 @@ static class SelfTest
         Check(Screensaver.IsScreensaverArgs(["/s"]) && Screensaver.IsScreensaverArgs(["/c:1234"]) && Screensaver.IsScreensaverArgs(["/P"]), "screensaver: Windows' arguments are recognized");
         Check(!Screensaver.IsScreensaverArgs(["--selftest"]) && !Screensaver.IsScreensaverArgs(["--quit"]) && !Screensaver.IsScreensaverArgs([]), "screensaver: app arguments are not mistaken for it");
         Check(WallpaperHost.Locale().Length >= 2 && WallpaperHost.Html(new Settings { ClockStyle = "neon" }, "", false).Contains($"toLocaleDateString('{WallpaperHost.Locale()}'"), "clock: date follows Windows' regional format");
+        Check(Updater.IsNewer("1.0.10", "1.0.9") && Updater.IsNewer(" 1.1.0 ", "1.0.1") && !Updater.IsNewer("1.0.1", "1.0.1")
+              && !Updater.IsNewer("1.0.0", "1.0.1") && !Updater.IsNewer("<html>", "1.0.1") && !Updater.IsNewer(null, "1.0.1"), "update: version comparison");
         Check(Regex.IsMatch(Installer.Version, @"^\d+\.\d+\.\d+$"), "installer: clean version number");
 
         Display.TestSplit = 2;

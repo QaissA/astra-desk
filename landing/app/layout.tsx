@@ -31,7 +31,7 @@ const jsonLd = {
   description,
   url: "https://www.astra-desk.xyz",
   downloadUrl: "https://www.astra-desk.xyz/downloads/AstraDesk-Setup.exe",
-  softwareVersion: "1.0.1",
+  softwareVersion: "1.1.0",
   image: "https://www.astra-desk.xyz/images/og-image.png",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
 };

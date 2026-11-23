@@ -2,11 +2,19 @@
 import {
   AnimatePresence, MotionConfig, motion, useMotionValue, useReducedMotion, useScroll, useSpring, useTransform,
 } from "motion/react";
+import { Analytics } from "@vercel/analytics/next";
+import { pageview } from "@vercel/analytics";
 import { useEffect, useRef, useState, type ImgHTMLAttributes, type ReactNode } from "react";
 
 // Honour the OS "reduce motion" setting for every motion component below.
 export function Providers({ children }: { children: ReactNode }) {
-  return <MotionConfig reducedMotion="user">{children}</MotionConfig>;
+  useEffect(() => {
+    // free-plan analytics has no custom events, so each download click is counted as a view of "/download"
+    const onClick = (e: MouseEvent) => { if ((e.target as Element).closest?.("a[download]")) pageview({ path: "/download" }); };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
+  return <MotionConfig reducedMotion="user"><Analytics />{children}</MotionConfig>;
 }
 
 // Fade, lift and unblur into view once.

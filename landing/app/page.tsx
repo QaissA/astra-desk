@@ -4,7 +4,7 @@ import { HScroll, Img, Keycaps, Magnetic, Parallax, Reveal, RotatingWord, SpotCa
 
 // Change this if the .exe is hosted elsewhere (e.g. a GitHub release URL).
 const DOWNLOAD_URL = "/downloads/AstraDesk-Setup.exe";
-const VERSION = "1.0.1";
+const VERSION = "1.1.0";
 const SIZE = "51 MB";
 
 const features = [
