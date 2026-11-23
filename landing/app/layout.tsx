@@ -11,8 +11,8 @@ const description =
   "Transparent custom taskbar, animated anime wallpapers with effects, desktop clock, screensaver and one-click window layouts. Free for Windows 11.";
 
 export const metadata: Metadata = {
-  // set SITE_URL to the real domain when deploying, so share previews get absolute image URLs
-  metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
+  // production domain, so share previews get absolute image URLs (SITE_URL overrides it)
+  metadataBase: new URL(process.env.SITE_URL ?? "https://www.astra-desk.xyz"),
   title,
   description,
   openGraph: { title, description, images: ["/images/og-image.png"] },
