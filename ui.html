@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Astra Desk</title>
+<style>
+:root {
+  /* "anime night" look from the landing page: indigo glass, violet/pink lead, cyan highlight */
+  --bg: #0d0822; --panel: rgba(30, 20, 62, .5);
+  --line: rgba(196, 160, 255, .16); --line-hi: rgba(196, 140, 255, .5);
+  --text: #f3eeff; --muted: #a9a0c8; --cyan: #22d3ff; --violet: #a855f7; --pink: #ec4899;
+  --grad: linear-gradient(90deg, var(--violet), var(--cyan));
+  --glow: 0 0 18px rgba(168, 85, 247, .4);
+  --mono: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; /* plain UI font now; kbd keeps a real mono */
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; } /* .row / .banner set display, which would otherwise override the hidden attribute */
+html, body { margin: 0; height: 100%; }
+body {
+  display: flex; color: var(--text); background:
+    radial-gradient(900px 600px at 0% 0%, rgba(236, 72, 153, .22), transparent 60%),
+    radial-gradient(900px 700px at 100% 100%, rgba(34, 211, 255, .14), transparent 60%),
+    radial-gradient(1200px 800px at 60% 30%, rgba(168, 85, 247, .2), transparent 70%),
+    var(--bg);
+  font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  user-select: none; -webkit-user-select: none;
+}
+/* your wallpaper, blurred behind the glass (set by script from the lock screen snapshot; the gradient shows if there is none) */
+body::before { content: ""; position: fixed; inset: -40px; z-index: -1; pointer-events: none; background: var(--wall, none) center / cover; filter: blur(30px) saturate(1.3) brightness(.55); opacity: .9; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 1.5px solid var(--cyan); outline-offset: 3px; }
+
+/* sidebar */
+aside { position: relative; width: 236px; flex: none; padding: 24px 14px; display: flex; flex-direction: column; gap: 6px; background: rgba(18, 10, 40, .55); backdrop-filter: blur(20px); }
+aside::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: linear-gradient(transparent, var(--line-hi), transparent); }
+.brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 26px; }
+.brand b { display: block; font-weight: 600; font-size: 16px; }
+.brand small { display: flex; align-items: center; gap: 6px; font: 11px var(--mono); color: var(--muted); }
+.brand small::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); animation: pulse 2s infinite; }
+.logo { width: 36px; height: 36px; border-radius: 10px; box-shadow: 0 0 22px rgba(168, 85, 247, .5); }
+nav button { all: unset; position: relative; display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 11px 14px; border-radius: 12px; border: 1px solid transparent; cursor: pointer; color: #d6ceef; transition: color .15s, background .15s, border-color .15s; }
+nav button:hover { color: #fff; background: rgba(196, 160, 255, .08); }
+nav button.on { color: #fff; background: linear-gradient(90deg, rgba(168, 85, 247, .45), rgba(34, 211, 255, .18)); border-color: rgba(34, 211, 255, .55); box-shadow: 0 0 18px rgba(168, 85, 247, .35), inset 0 0 12px rgba(34, 211, 255, .12); }
+nav svg { fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+nav svg { stroke: currentColor; width: 18px; height: 18px; flex: none; }
+nav .idx, .kicker { display: none; } /* numbering belonged to the old HUD look */
+.foot { margin-top: auto; padding: 0 10px; font: 11px/1.6 var(--mono); color: var(--muted); }
+.quit { all: unset; box-sizing: border-box; display: block; width: 100%; margin-top: 14px; padding: 9px 12px; border-radius: 12px; cursor: pointer; text-align: center;
+  font: 600 13px var(--mono); color: #ff8fb0; border: 1px solid rgba(255, 92, 138, .35); background: rgba(255, 92, 138, .06); transition: .15s; }
+.quit:hover { background: rgba(255, 92, 138, .14); box-shadow: 0 0 16px rgba(255, 92, 138, .3); }
+.quit:focus-visible { outline: 1.5px solid #ff5c8a; outline-offset: 2px; }
+.quit.armed { color: #fff; background: rgba(255, 92, 138, .55); border-color: #ff5c8a; }
+
+/* content */
+main { flex: 1; overflow: auto; padding: 28px 48px 48px; scrollbar-width: thin; scrollbar-color: var(--line-hi) transparent; }
+section { display: none; max-width: 820px; }
+section.on { display: block; animation: in .28s ease; }
+.kicker { font: 11px var(--mono); letter-spacing: .24em; color: var(--cyan); opacity: .8; }
+h1 { margin: 6px 0 2px; font: 600 32px "Segoe UI Variable Display", "Segoe UI", sans-serif; background: linear-gradient(90deg, #fff, #e4d4ff 60%, #b9ecff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sub { margin: 0 0 24px; color: #c9c0e6; font-size: 15px; }
+
+.card { position: relative; margin-bottom: 16px; padding: 20px 22px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(18px); box-shadow: 0 10px 40px rgba(6, 2, 20, .35), inset 0 1px 0 rgba(255, 255, 255, .05); transition: border-color .2s, box-shadow .2s; }
+.card:hover { border-color: rgba(196, 140, 255, .32); box-shadow: 0 10px 40px rgba(6, 2, 20, .35), 0 0 24px rgba(168, 85, 247, .14); }
+.card h2 { margin: 0 0 4px; font: 600 17px "Segoe UI Variable Display", "Segoe UI", sans-serif; color: #fff; }
+.card p { margin: 0; color: var(--muted); font-size: 13px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.row + .row, .card > p + .row { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.row .label { font-weight: 500; }
+
+/* option tiles */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+.tile { all: unset; cursor: pointer; padding: 12px; text-align: center; border-radius: 14px; font-weight: 600; background: rgba(20, 12, 44, .45); border: 1px solid var(--line); transition: border-color .15s, box-shadow .15s, transform .15s; }
+.tile:hover { border-color: var(--line-hi); transform: translateY(-2px); }
+.tile.on { border-color: var(--cyan); box-shadow: var(--glow), inset 0 0 24px rgba(34, 228, 255, .08); color: var(--cyan); }
+.tile small { display: block; margin-top: 2px; font: 400 11px var(--mono); color: var(--muted); letter-spacing: .04em; }
+.mini { position: relative; height: 88px; margin-bottom: 12px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line);
+  background: radial-gradient(60px 40px at 75% 25%, rgba(255, 255, 255, .5), transparent 70%), linear-gradient(160deg, #2a1660, #6b2a8f 55%, #c2417f); } /* a tiny night sky */
+.mini .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 11px; background: rgba(12, 8, 30, .75); box-shadow: 0 0 12px rgba(168, 85, 247, .6); }
+.mini .bar.peek { height: 2px; }
+.mini .glass { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; display: flex; justify-content: center; align-items: center; gap: 4px; }
+.mini .glass i { width: 6px; height: 6px; border-radius: 2px; background: var(--grad); box-shadow: 0 0 6px rgba(34, 228, 255, .8); }
+.mini .w { position: absolute; border-radius: 3px; border: 1px solid rgba(34, 228, 255, .55); background: rgba(34, 228, 255, .1); }
+.tile:hover .mini .w { background: rgba(34, 228, 255, .22); box-shadow: 0 0 10px rgba(34, 228, 255, .35); }
+
+/* segmented control */
+.seg { display: inline-flex; flex: none; padding: 3px; border-radius: 10px; border: 1px solid var(--line); background: rgba(6, 10, 20, .6); }
+.seg button { all: unset; cursor: pointer; padding: 5px 14px; border-radius: 7px; font: 13px var(--mono); color: var(--muted); }
+.seg button.on { color: #fff; background: var(--grad); box-shadow: var(--glow); font-weight: 600; }
+
+/* switch */
+.sw { position: relative; flex: none; width: 46px; height: 24px; }
+.sw input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.sw span { position: absolute; inset: 0; border-radius: 12px; border: 1px solid var(--line-hi); background: rgba(6, 10, 20, .7); pointer-events: none; transition: .2s; }
+.sw span::after { content: ""; position: absolute; top: 4px; left: 4px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: .2s; }
+.sw input:checked + span { background: var(--cyan); border-color: transparent; box-shadow: 0 0 14px rgba(34, 211, 255, .55); }
+.sw input:checked + span::after { left: 26px; background: #fff; box-shadow: 0 0 8px #fff; }
+.sw input:focus-visible + span { outline: 1.5px solid var(--cyan); outline-offset: 3px; }
+
+/* slider */
+.range { display: flex; align-items: center; gap: 16px; margin-top: 16px; }
+.range output { width: 120px; text-align: right; font: 13px var(--mono); color: #fff; }
+input[type=range] { flex: 1; appearance: none; height: 5px; border-radius: 3px; cursor: pointer; background: linear-gradient(90deg, var(--violet), var(--cyan) var(--p, 0%), rgba(196, 160, 255, .18) var(--p, 0%)); }
+input[type=range]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(34, 228, 255, .25), 0 0 14px var(--cyan); }
+
+/* buttons */
+.btn { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 12px; font: 600 13px var(--mono); border: 1px solid var(--line-hi); color: #fff; background: rgba(168, 85, 247, .12); transition: .15s; }
+.btn:hover { background: rgba(168, 85, 247, .24); box-shadow: var(--glow); }
+.btn.primary { color: #fff; background: var(--grad); border-color: transparent; }
+.btn.primary:hover { box-shadow: 0 0 24px rgba(168, 85, 247, .6); filter: brightness(1.08); }
+.actions { display: flex; gap: 8px; margin-top: 18px; }
+
+/* banner */
+.banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255, 196, 0, .4); background: rgba(255, 196, 0, .07); color: #ffe39a; font: 12px var(--mono); letter-spacing: .04em; }
+
+/* zones */
+.zones { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 10px; margin-top: 18px; }
+.zone { position: relative; min-height: 64px; padding: 26px 8px 8px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; border: 1px dashed var(--line-hi); border-radius: 14px; background: rgba(20, 12, 44, .4); transition: border-color .15s, box-shadow .15s; }
+.zone::before { content: attr(data-label); position: absolute; top: 6px; left: 10px; font: 10px var(--mono); letter-spacing: .2em; color: var(--cyan); opacity: .75; }
+#zCenter { justify-content: center; } #zRight { justify-content: flex-end; }
+.zone.over { border-style: solid; border-color: var(--cyan); box-shadow: var(--glow); }
+.zone.pool { margin-top: 10px; border-color: var(--line); background: transparent; }
+.zone.pool::before { color: var(--muted); }
+.chip { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line-hi); background: rgba(168, 85, 247, .16); font: 13px var(--mono); cursor: grab; transition: background .15s; }
+.chip:hover { background: rgba(168, 85, 247, .3); }
+.chip.drag { opacity: .35; }
+.pool .chip { border-color: var(--line); background: transparent; color: var(--muted); }
+.hint { margin-top: 10px; font: 11px var(--mono); color: var(--muted); }
+
+/* lists */
+.list { list-style: none; margin: 14px 0 0; padding: 0; max-height: 320px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--line-hi) transparent; }
+.list li { display: flex; align-items: center; gap: 12px; padding: 7px 6px; border-radius: 8px; transition: background .15s; }
+.list li:hover { background: rgba(110, 190, 255, .06); }
+.list img, .letter { width: 24px; height: 24px; flex: none; }
+.letter { display: grid; place-items: center; border-radius: 6px; background: var(--grad); color: #04121a; font-weight: 700; font-size: 12px; }
+.list .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list .empty { color: var(--muted); font: 12px var(--mono); }
+.x { all: unset; cursor: pointer; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; color: var(--muted); }
+.x:hover { color: #ff5c8a; background: rgba(255, 92, 138, .12); }
+
+/* wallpaper */
+.preview { position: relative; aspect-ratio: 16 / 9; margin-top: 18px; border-radius: 12px; overflow: hidden; display: grid; place-items: center; border: 1px solid var(--line-hi); color: var(--muted); font: 12px var(--mono); letter-spacing: .08em;
+  background: linear-gradient(rgba(110, 190, 255, .06) 1px, transparent 1px) 0 0 / 24px 24px, linear-gradient(90deg, rgba(110, 190, 255, .06) 1px, transparent 1px) 0 0 / 24px 24px, #070b16; }
+.preview iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; }
+.seg.wrap { flex-wrap: wrap; justify-content: flex-end; flex: 0 1 auto; min-width: 0; } /* long button rows wrap instead of overflowing */
+.row > .label { flex: none; }
+.badge { position: absolute; left: 12px; top: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-hi); background: rgba(14, 8, 34, .7); backdrop-filter: blur(8px); color: #fff; font: 12px var(--mono); }
+
+/* desktop clock tiles */
+.cmini { display: grid; place-items: center; }
+.cp-off { font: 22px var(--mono); color: var(--muted); }
+.cp-neon { font: 600 26px var(--mono); color: #e9fdff; text-shadow: 0 0 4px #fff, 0 0 10px #22e4ff, 0 0 22px #a64dff; }
+.cp-minimal { font: 200 32px "Segoe UI Variable Display", "Segoe UI", sans-serif; color: #fff; }
+.cp-digital { font: 700 22px var(--mono); color: #ffb000; text-shadow: 0 0 8px rgba(255, 176, 0, .7); padding: 2px 8px; background: rgba(10, 6, 0, .6); border: 1px solid rgba(255, 176, 0, .35); border-radius: 4px; }
+.cp-glass { font: 600 22px "Segoe UI Variable Display", "Segoe UI", sans-serif; color: #fff; padding: 6px 14px; border-radius: 10px; background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .28); }
+.cp-analog { position: relative; width: 56px; height: 56px; border-radius: 50%; border: 2px solid rgba(34, 228, 255, .75); background: rgba(5, 8, 16, .6); }
+.cp-analog i { position: absolute; left: 50%; bottom: 50%; width: 3px; margin-left: -1.5px; background: #fff; border-radius: 2px; transform-origin: bottom center; }
+.cp-analog .h { height: 15px; transform: rotate(20deg); } .cp-analog .m { height: 22px; width: 2px; transform: rotate(270deg); }
+
+/* workshop */
+#workshop { max-width: 1100px; }
+.input { flex: 1; min-width: 0; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--line-hi); background: rgba(6, 10, 20, .7); color: var(--text); font: 13px var(--mono); outline: none; transition: .15s; }
+.input:focus { border-color: var(--cyan); box-shadow: var(--glow); }
+.keyrow { display: flex; gap: 8px; flex: 1; max-width: 520px; }
+.search { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.search .input { flex: 1 1 260px; min-width: 220px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.keylink { margin-top: 12px; }
+.link { all: unset; cursor: pointer; color: var(--cyan); text-decoration: underline; text-underline-offset: 2px; }
+.link:focus-visible { outline: 1.5px solid var(--cyan); outline-offset: 2px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-top: 12px; }
+.wcard { display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; background: var(--panel); border: 1px solid var(--line); transition: border-color .15s, transform .15s, box-shadow .15s; }
+.wcard:hover { border-color: var(--line-hi); transform: translateY(-2px); box-shadow: var(--glow); }
+.thumb { position: relative; aspect-ratio: 16 / 9; background: #070b16; }
+.thumb img, .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.thumb video { opacity: 0; transition: opacity .2s; }
+.thumb video.play { opacity: 1; }
+.thumb .tag { position: absolute; bottom: 6px; padding: 2px 7px; border-radius: 5px; background: rgba(4, 8, 16, .8); font: 10px var(--mono); letter-spacing: .08em; color: var(--cyan); }
+.thumb .res { left: 6px; } .thumb .dur { right: 6px; color: var(--text); }
+.meta { padding: 10px 12px 4px; flex: 1; }
+.meta .t { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta .by { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wcard .get { margin: 8px 12px 12px; justify-content: center; }
+.wcard .get[disabled] { opacity: .7; cursor: progress; }
+.wcard .get.done { background: rgba(34, 228, 255, .12); color: var(--cyan); border-color: var(--cyan); }
+.skel { aspect-ratio: 16 / 12; border-radius: 12px; background: linear-gradient(90deg, rgba(110,190,255,.05), rgba(110,190,255,.12), rgba(110,190,255,.05)) 0 0 / 200% 100%; animation: shimmer 1.2s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.actions.center { justify-content: center; }
+.tiles.two { grid-template-columns: repeat(2, 1fr); }
+.tile.site { padding: 22px 16px; background: linear-gradient(135deg, rgba(34, 228, 255, .08), rgba(166, 77, 255, .1)); }
+.tile.site .sname { display: block; font: 700 20px "Segoe UI Variable Display", "Segoe UI", sans-serif; letter-spacing: .04em; margin-bottom: 4px; }
+.credit { margin-top: 18px; font-size: 12px; color: var(--muted); }
+
+#toast { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 20px); opacity: 0; padding: 10px 18px; border-radius: 10px; pointer-events: none; transition: .2s; background: rgba(40, 6, 20, .9); border: 1px solid #ff5c8a; color: #ffd1de; font: 12px var(--mono); box-shadow: 0 0 20px rgba(255, 92, 138, .4); }
+#toast.show { transform: translate(-50%, 0); opacity: 1; }
+.ver { margin-top: 10px; text-align: center; font: 10px var(--mono); color: var(--muted); opacity: .7; }
+.keys li { justify-content: space-between; }
+.keys kbd { font: 12px "Cascadia Mono", Consolas, monospace; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line-hi); background: rgba(34, 228, 255, .06); color: var(--cyan); }
+.keys .na { font: 11px var(--mono); color: #ff8fb0; }
+#welcome { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(2, 4, 10, .78); backdrop-filter: blur(6px); }
+#welcome[hidden] { display: none; }
+.wbox { width: min(560px, calc(100% - 32px)); padding: 30px 32px; border-radius: 18px; background: rgba(12, 18, 34, .96); border: 1px solid var(--line-hi); box-shadow: var(--glow), 0 30px 80px #000a; animation: in .3s ease; }
+.wstep { all: unset; box-sizing: border-box; display: block; width: 100%; margin-top: 10px; padding: 14px 16px; border-radius: 12px; cursor: pointer; border: 1px solid var(--line); background: rgba(6, 10, 20, .6); transition: .15s; }
+.wstep:hover, .wstep:focus-visible { border-color: var(--cyan); box-shadow: var(--glow); }
+.wstep b { display: block; font: 600 13px var(--mono); letter-spacing: .06em; color: #bfe9ff; }
+.wstep span { font-size: 13px; color: var(--muted); }
+#toast.ok { background: rgba(4, 30, 36, .92); border-color: var(--cyan); color: #c9f7ff; box-shadow: var(--glow); }
+
+@keyframes in { from { opacity: 0; transform: translateY(8px); filter: blur(2px); } }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand">
+    <img class="logo" alt="" src="data:image/png;base64,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">
+    <div><b>Astra Desk</b><small>Running</small></div>
+  </div>
+  <nav>
+    <button data-go="taskbar" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16h18"/></svg>Taskbar<span class="idx">01</span></button>
+    <button data-go="custombar"><svg viewBox="0 0 24 24"><rect x="3" y="15" width="18" height="5" rx="2"/><path d="M6 17.5h1M11 17.5h2M17 17.5h1M8 10l4-5 4 5"/></svg>Custom bar<span class="idx">02</span></button>
+    <button data-go="workshop"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>Workshop<span class="idx">03</span></button>
+    <button data-go="wallpaper"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg>Wallpaper<span class="idx">04</span></button>
+    <button data-go="layout"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16M12 12h9"/></svg>Window layout<span class="idx">05</span></button>
+    <button data-go="desktop"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Desktop<span class="idx">06</span></button>
+  </nav>
+  <div class="foot">Runs in the tray. Right-click the custom bar for the menu.
+    <button class="quit" id="quit" title="Stops the wallpaper and custom bar and brings back the Windows taskbar">⏻&nbsp; Quit Astra Desk</button>
+    <div class="ver" id="ver"></div>
+  </div>
+</aside>
+
+<main>
+  <!-- 01 TASKBAR -->
+  <section id="taskbar" class="on">
+    <div class="kicker">MODULE 01</div>
+    <h1>Taskbar</h1>
+    <p class="sub">Pick which bar you use, then tune it.</p>
+    <div class="card">
+      <h2>Mode</h2>
+      <p>Custom bar replaces the Windows taskbar with one you design: transparent, with any element in any zone.</p>
+      <div class="tiles">
+        <button class="tile" data-taskbar="Normal"><div class="mini"><div class="bar"></div></div>Windows bar<small>always shown</small></button>
+        <button class="tile" data-taskbar="AutoHide"><div class="mini"><div class="bar peek"></div></div>Auto-hide<small>shows on hover</small></button>
+        <button class="tile" data-taskbar="Custom"><div class="mini"><div class="glass"><i></i><i></i><i></i><i></i></div></div>Custom bar<small>transparent, your layout</small></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Windows taskbar items</h2>
+      <p>For the Windows bar (first two modes). The custom bar is set up on the Custom bar page.</p>
+      <div class="row"><span class="label">Search</span><div class="seg"><button data-native="search" data-v="0">Off</button><button data-native="search" data-v="1">Icon</button><button data-native="search" data-v="2">Box</button></div></div>
+      <div class="row"><span class="label">Task view button</span><label class="sw"><input type="checkbox" data-nsw="taskView" aria-label="Task view button"><span></span></label></div>
+      <div class="row"><span class="label">Widgets</span><label class="sw"><input type="checkbox" data-nsw="widgets" aria-label="Widgets"><span></span></label></div>
+      <div class="row"><span class="label">Seconds on the clock</span><label class="sw"><input type="checkbox" data-nsw="seconds" aria-label="Seconds on the clock"><span></span></label></div>
+      <div class="row"><span class="label">Badges on app icons</span><label class="sw"><input type="checkbox" data-nsw="badges" aria-label="Badges on app icons"><span></span></label></div>
+      <div class="row"><span class="label">Combine app buttons</span><div class="seg"><button data-native="combine" data-v="0">Always</button><button data-native="combine" data-v="1">When full</button><button data-native="combine" data-v="2">Never</button></div></div>
+      <div class="row"><span class="label">Icon alignment</span><div class="seg"><button data-native="align" data-v="0">Left</button><button data-native="align" data-v="1">Center</button></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Tray icons</h2>
+      <p>Which app icons show next to the clock on the Windows bar (the rest go in the ^ overflow).</p>
+      <ul class="list" id="trayList"></ul>
+    </div>
+  </section>
+
+  <!-- 02 CUSTOM BAR -->
+  <section id="custombar">
+    <div class="kicker">MODULE 02</div>
+    <h1>Custom bar</h1>
+    <p class="sub">Your own taskbar: choose its transparency and what goes left, center and right.</p>
+    <div class="banner" id="customOff">CUSTOM BAR IS OFF. CHANGES BELOW ARE SAVED FOR WHEN YOU TURN IT ON.<button class="btn primary" data-taskbar="Custom">Turn on</button></div>
+
+    <div class="card">
+      <h2>Background</h2>
+      <p>0% = fully transparent: only the icons and text float over your wallpaper.</p>
+      <div class="range"><input type="range" id="opacity" min="0" max="100" step="1" aria-label="Background opacity"><output id="opacityOut"></output></div>
+    </div>
+
+    <div class="card">
+      <h2>Layout</h2>
+      <p>Drag elements between zones; order inside a zone is the order on the bar. Drop in Hidden to remove one.</p>
+      <div class="zones">
+        <div class="zone" id="zLeft" data-label="LEFT"></div>
+        <div class="zone" id="zCenter" data-label="CENTER"></div>
+        <div class="zone" id="zRight" data-label="RIGHT"></div>
+      </div>
+      <div class="zone pool" id="zHidden" data-label="HIDDEN"></div>
+      <div class="hint">Keyboard: focus an element and press Enter to move it to the next zone</div>
+    </div>
+
+    <div class="card">
+      <div class="row"><div><h2>Pinned apps</h2><p>Shown where you place the "Pinned apps" element.</p></div><button class="btn primary" data-cmd="pinAdd">+ Add apps</button></div>
+      <ul class="list" id="pinList"></ul>
+    </div>
+  </section>
+
+  <!-- 03 WORKSHOP -->
+  <section id="workshop">
+    <div class="kicker">MODULE 03</div>
+    <h1>Workshop</h1>
+    <p class="sub">Anime wallpapers from well-known sources, on your desktop in one click.</p>
+
+    <div class="card">
+      <h2>Animated anime clips</h2>
+      <p>The best-known anime live wallpaper sites, opened inside Astra Desk. Browse as usual and click the site's own <b>Download</b> button: the clip is installed on your desktop automatically.</p>
+      <div class="tiles two">
+        <button class="tile site" data-browse="moewalls"><span class="sname">MoeWalls</span><small>One Piece, Naruto, Jujutsu Kaisen, Demon Slayer…</small></button>
+        <button class="tile site" data-browse="motionbgs"><span class="sname">MotionBgs</span><small>anime &amp; game live backgrounds in 4K</small></button>
+      </div>
+    </div>
+
+    <div class="card" id="wsKeys" hidden>
+      <h2>Stock video keys (optional)</h2>
+      <p>Only needed for the Pexels and Pixabay tabs (non-anime HD clips). Both are free: sign up, copy your API key, paste it here. Keys are saved only on this PC.</p>
+      <div class="row"><span class="label">Pexels</span><div class="keyrow"><input id="kPexels" class="input" placeholder="Paste Pexels API key" autocomplete="off" spellcheck="false" aria-label="Pexels API key"><button class="btn" data-open="https://www.pexels.com/api/new/">Get key</button></div></div>
+      <div class="row"><span class="label">Pixabay</span><div class="keyrow"><input id="kPixabay" class="input" placeholder="Paste Pixabay API key" autocomplete="off" spellcheck="false" aria-label="Pixabay API key"><button class="btn" data-open="https://pixabay.com/api/docs/">Get key</button></div></div>
+      <div class="actions"><button class="btn primary" id="saveKeys">Save keys</button><span class="hint" id="keyState"></span></div>
+    </div>
+
+    <div class="card" id="wsSearchCard">
+      <h2>Search wallpapers</h2>
+      <p id="wsHelp">Wallhaven: the largest anime wallpaper library (official API, safe-for-work only). Stills come to life with your Motion &amp; Overlay effects.</p>
+      <div class="search" style="margin-top:14px">
+        <input id="wsQ" class="input" placeholder="Search: one piece, naruto, gojo, demon slayer…" aria-label="Search wallpapers">
+        <div class="seg"><button data-src="wallhaven">Anime · Wallhaven</button><button data-src="pexels">Pexels</button><button data-src="pixabay">Pixabay</button><button data-src="all">All</button></div>
+        <button class="btn primary" id="wsGo">Search</button>
+      </div>
+      <div class="tags" id="wsTags"></div>
+      <div class="hint keylink"><button class="link" id="manageKeys">Manage API keys (Pexels / Pixabay)</button></div>
+    </div>
+
+    <div class="hint" id="wsStatus" role="status"></div>
+    <div class="grid" id="wsGrid"></div>
+    <div class="actions center"><button class="btn" id="wsMore" hidden>Load more</button></div>
+    <p class="credit">Wallpapers from <button class="link" data-open="https://wallhaven.cc">Wallhaven</button>, <button class="link" data-open="https://moewalls.com">MoeWalls</button>, <button class="link" data-open="https://motionbgs.com">MotionBgs</button>, <button class="link" data-open="https://www.pexels.com">Pexels</button> and <button class="link" data-open="https://pixabay.com">Pixabay</button>. Anime art belongs to its creators and studios: for your own desktop only, don't redistribute.</p>
+  </section>
+
+  <!-- 04 WALLPAPER -->
+  <section id="wallpaper">
+    <div class="kicker">MODULE 04</div>
+    <h1>Wallpaper</h1>
+    <p class="sub">Play a video or GIF behind your desktop icons, on every screen.</p>
+    <div class="card">
+      <div class="row">
+        <div><h2>Animated wallpaper</h2><p id="wallName">No file chosen</p></div>
+        <label class="sw"><input type="checkbox" id="wallOn" aria-label="Animated wallpaper"><span></span></label>
+      </div>
+      <div class="preview" id="preview">No wallpaper yet · choose an MP4, WebM, GIF or image</div>
+      <div class="actions"><button class="btn primary" data-cmd="wallChoose">Choose file</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Animation</h2>
+      <p>Bring any wallpaper to life, even a still image. The preview above shows the result.</p>
+      <div class="row"><span class="label">Motion</span><div class="seg wrap">
+        <button data-fx="motion" data-v="none">None</button><button data-fx="motion" data-v="zoom">Zoom</button><button data-fx="motion" data-v="pan">Pan</button><button data-fx="motion" data-v="drift">Drift</button><button data-fx="motion" data-v="sway">Sway</button><button data-fx="motion" data-v="pulse">Pulse</button><button data-fx="motion" data-v="hue">Color</button>
+      </div></div>
+      <div class="row"><span class="label">Overlay</span><div class="seg wrap">
+        <button data-fx="overlay" data-v="none">None</button><button data-fx="overlay" data-v="snow">Snow</button><button data-fx="overlay" data-v="rain">Rain</button><button data-fx="overlay" data-v="sakura">Sakura</button><button data-fx="overlay" data-v="embers">Embers</button><button data-fx="overlay" data-v="stars">Stars</button><button data-fx="overlay" data-v="scanlines">CRT</button><button data-fx="overlay" data-v="glitch">Glitch</button>
+      </div></div>
+      <div class="row"><span class="label">Speed</span><div class="seg">
+        <button data-fx="speed" data-v="slow">Slow</button><button data-fx="speed" data-v="normal">Normal</button><button data-fx="speed" data-v="fast">Fast</button>
+      </div></div>
+    </div>
+
+    <div class="card">
+      <div class="row"><div><h2>Performance</h2><p id="perfState">playing</p></div><button class="btn" data-cmd="pause" id="pauseBtn">Pause now</button></div>
+      <div class="row"><span class="label">Pause during games &amp; full-screen apps</span><label class="sw"><input type="checkbox" data-perf="fullscreen" aria-label="Pause during games and full-screen apps"><span></span></label></div>
+      <div class="row"><span class="label">Pause on battery</span><label class="sw"><input type="checkbox" data-perf="battery" aria-label="Pause on battery"><span></span></label></div>
+      <div class="row"><span class="label">Pause when a maximized window covers the desktop</span><label class="sw"><input type="checkbox" data-perf="maximized" aria-label="Pause when a maximized window covers the desktop"><span></span></label></div>
+    </div>
+
+    <div class="card">
+      <h2>Playlist</h2>
+      <p id="plInfo">Rotate through a folder of wallpapers.</p>
+      <div class="row"><span class="label">Change every</span><div class="seg wrap">
+        <button data-plmin="0">Off</button><button data-plmin="5">5 min</button><button data-plmin="15">15 min</button><button data-plmin="30">30 min</button><button data-plmin="60">1 hour</button>
+      </div></div>
+      <div class="row"><span class="label">Shuffle</span><label class="sw"><input type="checkbox" id="plShuffle" aria-label="Shuffle"><span></span></label></div>
+      <div class="actions"><button class="btn primary" data-cmd="next">Next wallpaper</button><button class="btn" data-cmd="playlistFolder">Choose folder</button><button class="btn" id="plReset">Use Videos\Wallpapers</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Screensaver</h2>
+      <p>The lock screen can't animate, but the screensaver can: when your PC is idle, this exact animated wallpaper plays full screen. Move the mouse and you land on the lock screen.</p>
+      <div class="row"><span class="label">Animated screensaver</span><label class="sw"><input type="checkbox" id="saverOn" aria-label="Animated screensaver"><span></span></label></div>
+      <div class="row"><span class="label">Start after</span><div class="seg wrap">
+        <button data-svmin="1">1 min</button><button data-svmin="5">5 min</button><button data-svmin="10">10 min</button><button data-svmin="15">15 min</button><button data-svmin="30">30 min</button>
+      </div></div>
+      <div class="row"><span class="label">Ask for sign-in when it ends</span><label class="sw"><input type="checkbox" id="saverLock" aria-label="Ask for sign-in when it ends"><span></span></label></div>
+      <div class="actions"><button class="btn" data-cmd="saverPreview">Preview (move the mouse to stop)</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Lock screen</h2>
+      <p>Windows' lock screen can only show a still picture, so it gets a snapshot of your wallpaper as it looks now (motion and overlay included). The desktop clock is left out, since Windows shows its own.</p>
+      <div class="row"><span class="label">Keep lock screen in sync</span><label class="sw"><input type="checkbox" id="lockSync" aria-label="Keep lock screen in sync"><span></span></label></div>
+      <div class="actions"><button class="btn primary" data-cmd="lockNow">Apply to lock screen now</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Desktop clock</h2>
+      <p>A clock drawn on your desktop, under your icons. Works with or without an animated wallpaper.</p>
+      <div class="tiles">
+        <button class="tile" data-clock="off"><div class="mini cmini"><span class="cp-off">—</span></div>Off<small>no clock</small></button>
+        <button class="tile" data-clock="neon"><div class="mini cmini"><span class="cp-neon">12:45</span></div>Neon<small>glowing, futuristic</small></button>
+        <button class="tile" data-clock="minimal"><div class="mini cmini"><span class="cp-minimal">12:45</span></div>Minimal<small>thin and clean</small></button>
+        <button class="tile" data-clock="digital"><div class="mini cmini"><span class="cp-digital">12:45</span></div>Digital<small>amber LCD</small></button>
+        <button class="tile" data-clock="analog"><div class="mini cmini"><span class="cp-analog"><i class="h"></i><i class="m"></i></span></div>Analog<small>clock face</small></button>
+        <button class="tile" data-clock="glass"><div class="mini cmini"><span class="cp-glass">12:45</span></div>Glass<small>frosted card</small></button>
+      </div>
+      <div class="row"><span class="label">Position</span><div class="seg wrap">
+        <button data-cpos="top-left">Top left</button><button data-cpos="top-center">Top center</button><button data-cpos="top-right">Top right</button><button data-cpos="center">Center</button><button data-cpos="bottom-left">Bottom left</button><button data-cpos="bottom-right">Bottom right</button>
+      </div></div>
+      <div class="row"><span class="label">Size</span><div class="seg">
+        <button data-csize="small">Small</button><button data-csize="medium">Medium</button><button data-csize="large">Large</button>
+      </div></div>
+      <div class="row"><span class="label">24-hour time</span><label class="sw"><input type="checkbox" id="c24" aria-label="24-hour time"><span></span></label></div>
+      <div class="row"><span class="label">Show date</span><label class="sw"><input type="checkbox" id="cDate" aria-label="Show date"><span></span></label></div>
+      <div class="row" id="clockAllRow"><span class="label">Show on every screen</span><label class="sw"><input type="checkbox" id="cAll" aria-label="Show the clock on every screen"><span></span></label></div>
+    </div>
+  </section>
+
+  <!-- 04 LAYOUT -->
+  <section id="layout">
+    <div class="kicker">MODULE 05</div>
+    <h1>Window layout</h1>
+    <p class="sub">Arrange every open window on each screen in one click.</p>
+    <div class="card">
+      <h2>Tile windows</h2>
+      <p>Minimized windows are left alone.</p>
+      <div class="tiles">
+        <button class="tile" data-tile="Columns"><div class="mini">
+          <div class="w" style="left:6%;top:9%;width:28%;height:82%"></div><div class="w" style="left:36%;top:9%;width:28%;height:82%"></div><div class="w" style="left:66%;top:9%;width:28%;height:82%"></div>
+        </div>Columns<small>side by side</small></button>
+        <button class="tile" data-tile="Grid"><div class="mini">
+          <div class="w" style="left:6%;top:9%;width:43%;height:39%"></div><div class="w" style="left:51%;top:9%;width:43%;height:39%"></div><div class="w" style="left:6%;top:52%;width:43%;height:39%"></div><div class="w" style="left:51%;top:52%;width:43%;height:39%"></div>
+        </div>Grid<small>even squares</small></button>
+        <button class="tile" data-tile="Main"><div class="mini">
+          <div class="w" style="left:6%;top:9%;width:54%;height:82%"></div><div class="w" style="left:62%;top:9%;width:32%;height:40%"></div><div class="w" style="left:62%;top:51%;width:32%;height:40%"></div>
+        </div>Focus<small>one big + stack</small></button>
+      </div>
+    </div>
+    <div class="card row">
+      <div><h2>Monitor arrangement</h2><p>Position, resolution and scale of your screens.</p></div>
+      <button class="btn" data-cmd="display">Display settings</button>
+    </div>
+  </section>
+
+  <!-- 05 DESKTOP -->
+  <section id="desktop">
+    <div class="kicker">MODULE 06</div>
+    <h1>Desktop</h1>
+    <p class="sub">General look and startup.</p>
+    <div class="card">
+      <div class="row"><div><h2>Desktop icons</h2><p>Hide them for a clean wallpaper.</p></div><label class="sw"><input type="checkbox" id="iconsOn" aria-label="Desktop icons"><span></span></label></div>
+      <div class="row"><div><h2>Windows dark mode</h2><p>Theme for Windows and your apps.</p></div><label class="sw"><input type="checkbox" id="darkOn" aria-label="Windows dark mode"><span></span></label></div>
+      <div class="row"><div><h2>Start with Windows</h2><p>Keeps the wallpaper and custom bar after a restart.</p></div><label class="sw"><input type="checkbox" id="startOn" aria-label="Start with Windows"><span></span></label></div>
+    </div>
+    <div class="card">
+      <h2>Keyboard shortcuts</h2>
+      <p>Work anywhere in Windows while Astra Desk is running.</p>
+      <ul class="list keys" id="keyList"></ul>
+    </div>
+  </section>
+</main>
+<div id="toast" role="alert"></div>
+
+<div id="welcome" hidden role="dialog" aria-modal="true" aria-labelledby="wTitle">
+  <div class="wbox">
+    <div class="kicker">WELCOME</div>
+    <h1 id="wTitle">Astra Desk</h1>
+    <p class="sub">Make Windows yours in three steps. You can change everything later.</p>
+    <button class="wstep" data-wgo="taskbar"><b>1 · Pick your taskbar</b><span>Keep Windows' bar, auto-hide it, or switch to a transparent custom bar.</span></button>
+    <button class="wstep" data-wgo="workshop"><b>2 · Get an animated wallpaper</b><span>Anime from Wallhaven, MoeWalls or MotionBgs, set in one click.</span></button>
+    <button class="wstep" data-wgo="wallpaper"><b>3 · Add effects &amp; a desktop clock</b><span>Motion, sakura, glitch, a neon clock, and the lock screen.</span></button>
+    <div class="actions"><button class="btn primary" id="wDone">Get started</button></div>
+    <p class="hint">Tip: Ctrl + Alt + S opens this window from anywhere</p>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
+const send = (cmd, extra = {}) => chrome.webview.postMessage({ cmd, ...extra });
+const esc = t => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+let lastWall, labels = {}, dragId;
+
+// navigation and simple controls
+$$('nav button').forEach(b => b.onclick = () => {
+  $$('nav button, section').forEach(e => e.classList.remove('on'));
+  b.classList.add('on'); $('#' + b.dataset.go).classList.add('on');
+});
+$$('[data-taskbar]').forEach(b => b.onclick = () => send('taskbar', { mode: b.dataset.taskbar }));
+$$('[data-native]').forEach(b => b.onclick = () => send('native', { id: b.dataset.native, value: +b.dataset.v }));
+$$('[data-nsw]').forEach(i => i.onchange = () => send('native', { id: i.dataset.nsw, value: i.checked ? 1 : 0 }));
+$$('[data-tile]').forEach(b => b.onclick = () => send('tile', { mode: b.dataset.tile }));
+$$('[data-fx]').forEach(b => b.onclick = () => send('wallFx', { [b.dataset.fx]: b.dataset.v }));
+$$('[data-clock]').forEach(b => b.onclick = () => send('clock', { style: b.dataset.clock }));
+$$('[data-cpos]').forEach(b => b.onclick = () => send('clock', { position: b.dataset.cpos }));
+$$('[data-csize]').forEach(b => b.onclick = () => send('clock', { size: b.dataset.csize }));
+$('#c24').onchange = e => send('clock', { h24: e.target.checked });
+$('#lockSync').onchange = e => send('lockSync', { on: e.target.checked });
+$$('[data-perf]').forEach(i => i.onchange = () => send('perf', { [i.dataset.perf]: i.checked }));
+$$('[data-plmin]').forEach(b => b.onclick = () => send('playlist', { minutes: +b.dataset.plmin }));
+$('#plShuffle').onchange = e => send('playlist', { shuffle: e.target.checked });
+$('#plReset').onclick = () => send('playlistFolder', { reset: true });
+$('#cAll').onchange = e => send('clockAll', { on: e.target.checked });
+$('#saverOn').onchange = e => send('saver', { on: e.target.checked });
+$('#saverLock').onchange = e => send('saver', { lock: e.target.checked });
+$$('[data-svmin]').forEach(b => b.onclick = () => send('saver', { minutes: +b.dataset.svmin }));
+// first-run welcome: each step jumps to its page
+const closeWelcome = () => { $('#welcome').hidden = true; send('welcomed'); };
+$('#wDone').onclick = closeWelcome;
+$$('[data-wgo]').forEach(b => b.onclick = () => { closeWelcome(); $(`nav [data-go="${b.dataset.wgo}"]`).click(); });
+// quit needs a second click within 4 s, so it can't happen by accident
+$('#quit').onclick = () => {
+  const b = $('#quit');
+  if (b.classList.contains('armed')) { send('quit'); return; }
+  b.classList.add('armed'); b.textContent = 'Click again to quit';
+  clearTimeout(b.t); b.t = setTimeout(() => { b.classList.remove('armed'); b.innerHTML = '⏻&nbsp; Quit Astra Desk'; }, 4000);
+};
+$('#cDate').onchange = e => send('clock', { date: e.target.checked });
+$$('[data-cmd]').forEach(b => b.onclick = () => send(b.dataset.cmd));
+for (const [id, cmd] of [['wallOn', 'wall'], ['iconsOn', 'icons'], ['darkOn', 'dark'], ['startOn', 'startup']])
+  $('#' + id).onchange = e => send(cmd, { on: e.target.checked });
+
+// transparency slider
+const showOpacity = v => {
+  $('#opacity').style.setProperty('--p', v + '%');
+  $('#opacityOut').textContent = v == 0 ? '0% · INVISIBLE' : v + '%';
+};
+$('#opacity').oninput = e => { showOpacity(e.target.value); send('barOpacity', { value: +e.target.value }); };
+
+// zone editor: drag and drop, Enter moves to the next zone
+const zoneIds = ['#zLeft', '#zCenter', '#zRight', '#zHidden'];
+const ids = sel => [...$$(sel + ' .chip')].map(c => c.dataset.id);
+const sendZones = () => send('zones', { left: ids('#zLeft'), center: ids('#zCenter'), right: ids('#zRight') });
+const chip = id => `<div class="chip" draggable="true" tabindex="0" data-id="${esc(id)}" aria-label="${esc(labels[id])}, press Enter to move">${esc(labels[id])}</div>`;
+
+document.addEventListener('dragstart', e => { const c = e.target.closest?.('.chip'); if (c) { dragId = c.dataset.id; c.classList.add('drag'); } });
+document.addEventListener('dragend', e => { e.target.classList?.remove('drag'); $$('.zone').forEach(z => z.classList.remove('over')); });
+$$('.zone').forEach(z => {
+  z.ondragover = e => {
+    e.preventDefault(); z.classList.add('over');
+    const moving = $(`.chip[data-id="${dragId}"]`); if (!moving) return;
+    const before = [...z.querySelectorAll('.chip:not(.drag)')].find(c => {
+      const r = c.getBoundingClientRect();
+      return e.clientY < r.bottom && e.clientY > r.top ? e.clientX < r.left + r.width / 2 : e.clientY < r.top;
+    });
+    if (moving.nextSibling !== before || moving.parentNode !== z) z.insertBefore(moving, before || null);
+  };
+  z.ondragleave = e => { if (!z.contains(e.relatedTarget)) z.classList.remove('over'); };
+  z.ondrop = e => { e.preventDefault(); z.classList.remove('over'); sendZones(); };
+});
+document.addEventListener('keydown', e => {
+  const c = e.target.closest?.('.chip'); if (!c || (e.key !== 'Enter' && e.key !== ' ')) return;
+  e.preventDefault();
+  const next = $(zoneIds[(zoneIds.indexOf('#' + c.parentNode.id) + 1) % zoneIds.length]);
+  next.appendChild(c); c.focus(); sendZones();
+});
+
+const icon = it => it.icon ? `<img src="${it.icon}" alt="">` : `<span class="letter">${esc(it.name[0] || '?')}</span>`;
+
+function render(s) {
+  labels = Object.fromEntries(s.elements.map(e => [e.id, e.label]));
+  $$('[data-taskbar]').forEach(b => b.classList.toggle('on', b.dataset.taskbar === s.taskbarMode));
+  $('#customOff').hidden = s.taskbarMode === 'Custom';
+
+  // Windows taskbar items
+  $$('[data-native]').forEach(b => b.classList.toggle('on', s.taskbarItems[b.dataset.native] === +b.dataset.v));
+  $$('[data-nsw]').forEach(i => i.checked = s.taskbarItems[i.dataset.nsw] !== 0);
+  $('#trayList').innerHTML = s.tray.length ? s.tray.map(t =>
+    `<li><span class="name">${esc(t.name)}</span><label class="sw"><input type="checkbox" data-tray="${esc(t.id)}" ${t.on ? 'checked' : ''} aria-label="Show ${esc(t.name)}"><span></span></label></li>`).join('')
+    : '<li class="empty">No tray icons registered yet</li>';
+  $$('[data-tray]').forEach(i => i.onchange = () => send('tray', { id: i.dataset.tray, on: i.checked }));
+
+  // custom bar
+  if (document.activeElement !== $('#opacity')) { $('#opacity').value = s.barOpacity; showOpacity(s.barOpacity); }
+  if (!dragId || !document.querySelector('.chip.drag')) {
+    const placed = new Set([...s.barLeft, ...s.barCenter, ...s.barRight]);
+    $('#zLeft').innerHTML = s.barLeft.map(chip).join('');
+    $('#zCenter').innerHTML = s.barCenter.map(chip).join('');
+    $('#zRight').innerHTML = s.barRight.map(chip).join('');
+    $('#zHidden').innerHTML = s.elements.filter(e => !placed.has(e.id)).map(e => chip(e.id)).join('');
+  }
+  $('#pinList').innerHTML = s.pinned.length ? s.pinned.map((it, i) =>
+    `<li>${icon(it)}<span class="name">${esc(it.name)}</span><button class="x" data-i="${i}" aria-label="Unpin ${esc(it.name)}">✕</button></li>`).join('')
+    : '<li class="empty">Nothing pinned yet</li>';
+  $$('#pinList .x').forEach(b => b.onclick = () => send('pinRemove', { index: +b.dataset.i }));
+
+  // wallpaper + desktop
+  $('#wallOn').checked = s.wallpaperEnabled; $('#iconsOn').checked = s.iconsVisible;
+  $('#darkOn').checked = s.dark; $('#startOn').checked = s.startup;
+  $('#wallName').textContent = s.wallpaperName || 'No file chosen';
+  const fx = { motion: s.wallpaperMotion, overlay: s.wallpaperOverlay, speed: s.wallpaperSpeed };
+  $$('[data-fx]').forEach(b => b.classList.toggle('on', fx[b.dataset.fx] === b.dataset.v));
+  $$('[data-clock]').forEach(b => b.classList.toggle('on', b.dataset.clock === s.clockStyle));
+  $$('[data-cpos]').forEach(b => b.classList.toggle('on', b.dataset.cpos === s.clockPosition));
+  $$('[data-csize]').forEach(b => b.classList.toggle('on', b.dataset.csize === s.clockSize));
+  $('#c24').checked = s.clock24h; $('#cDate').checked = s.clockDate; $('#lockSync').checked = s.lockSync;
+  $('#cAll').checked = s.clockAllScreens; $('#clockAllRow').hidden = s.screens < 2;
+  // performance
+  $('[data-perf="fullscreen"]').checked = s.pauseFullscreen; $('[data-perf="battery"]').checked = s.pauseOnBattery; $('[data-perf="maximized"]').checked = s.pauseMaximized;
+  $('#perfState').textContent = s.pauseReason ? `Paused: ${s.pauseReason}` : 'Playing';
+  $('#pauseBtn').textContent = s.manualPause ? 'Resume' : 'Pause now';
+  // playlist
+  $$('[data-plmin]').forEach(b => b.classList.toggle('on', +b.dataset.plmin === s.playlistMinutes));
+  $('#plShuffle').checked = s.playlistShuffle;
+  $('#plInfo').textContent = `${s.playlistCount} wallpaper${s.playlistCount === 1 ? '' : 's'} in ${s.playlistFolder}`;
+  // screensaver
+  $('#saverOn').checked = s.screensaverOn; $('#saverLock').checked = s.screensaverLock;
+  $$('[data-svmin]').forEach(b => b.classList.toggle('on', +b.dataset.svmin === s.screensaverMinutes));
+  // shortcuts, version, welcome
+  $('#keyList').innerHTML = s.shortcuts.map(k => `<li><span class="name">${esc(k.action)}</span>${k.ok ? `<kbd>${esc(k.keys)}</kbd>` : `<span class="na">${esc(k.keys)} · used by another app</span>`}</li>`).join('');
+  $('#ver').textContent = `v${s.version}${s.installed ? '' : ' · not installed'}`;
+  if (!s.welcomed && !render.welcomeShown) { render.welcomeShown = true; $('#welcome').hidden = false; $('#wDone').focus(); }
+  if (s.previewUrl !== lastWall) { // only reload the preview when the look changes, so the video keeps playing
+    lastWall = s.previewUrl;
+    // shortcut: the backdrop is the lock screen snapshot, so it only follows the wallpaper when lock screen sync made a new one
+    document.body.style.setProperty('--wall', `url("https://app.local/lockscreen.png?t=${Date.now()}")`);
+    $('#preview').innerHTML = !s.previewUrl ? 'No wallpaper yet · choose an MP4, WebM, GIF or image'
+      : `<iframe src="${s.previewUrl}" title="Wallpaper preview" tabindex="-1"></iframe>`;
+  }
+  if (s.wallUrl) {
+    const badge = $('#preview .badge') || $('#preview').appendChild(Object.assign(document.createElement('span'), { className: 'badge' }));
+    badge.textContent = s.wallpaperEnabled ? '● Live on desktop' : '❚❚ Paused';
+  }
+
+  if (s.error) { $('#toast').textContent = s.error; $('#toast').classList.add('show'); setTimeout(() => $('#toast').classList.remove('show'), 4500); }
+}
+
+// ---- Workshop ----
+const ws = { q: '', page: 1, source: 'wallhaven', started: false, busy: false };
+let keys = { pexels: false, pixabay: false };
+const TAGS = ['one piece', 'naruto', 'jujutsu kaisen', 'demon slayer', 'dragon ball', 'attack on titan', 'studio ghibli', 'chainsaw man', 'anime city', 'anime night', 'cyberpunk', 'landscape'];
+const HELP = {
+  wallhaven: 'Wallhaven: the largest anime wallpaper library (official API, safe-for-work only). Stills come to life with your Motion & Overlay effects.',
+  pexels: 'Pexels: free HD/4K stock video loops (not anime). Needs a free API key.',
+  pixabay: 'Pixabay: free stock videos, incl. some anime-style animations. Needs a free API key.',
+  all: 'All sources mixed: Wallhaven anime stills plus Pexels/Pixabay clips (if you added keys).',
+};
+$('#wsTags').innerHTML = TAGS.map(t => `<button class="chip" data-tag="${t}">${t}</button>`).join('');
+const fmtDur = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+function wsSearch(more) {
+  if (ws.busy) return;
+  if (!more) { ws.q = $('#wsQ').value.trim(); ws.page = 1; $('#wsGrid').innerHTML = '<div class="skel"></div>'.repeat(8); }
+  else ws.page++;
+  ws.busy = true; ws.started = true;
+  $('#wsMore').hidden = true;
+  $('#wsStatus').textContent = 'Searching…';
+  send('wsSearch', { q: ws.q, page: ws.page, source: ws.source });
+}
+function renderWorkshop(r) {
+  if (r.q !== ws.q || r.page !== ws.page) return; // an older search answered late
+  ws.busy = false;
+  if (r.page === 1) $('#wsGrid').innerHTML = '';
+  $('#wsGrid').insertAdjacentHTML('beforeend', r.items.map(it => `
+    <article class="wcard">
+      <div class="thumb" data-preview="${esc(it.preview || '')}">
+        ${it.thumb ? `<img src="${esc(it.thumb)}" alt="" loading="lazy">` : ''}
+        <video muted loop playsinline preload="none"></video>
+        <span class="tag res">${it.width >= 3840 ? '4K' : it.width >= 2560 ? '2K' : it.width >= 1920 ? 'Full HD' : 'HD'}</span>
+        <span class="tag dur">${it.kind === 'image' ? 'Still · animated by the app' : fmtDur(it.duration)}</span>
+      </div>
+      <div class="meta"><div class="t" title="${esc(it.title)}">${esc(it.title)}</div>
+        <div class="by">by <button class="link" data-open="${esc(it.page || '')}">${esc(it.author)}</button> · ${esc(it.source)}</div></div>
+      <button class="btn primary get" data-get="${esc(it.key)}">Set as wallpaper</button>
+    </article>`).join(''));
+  const total = $$('#wsGrid .wcard').length;
+  $('#wsStatus').textContent = r.errors.length ? r.errors.join('  ·  ') : total ? `${total} results${ws.q ? ` for "${ws.q}"` : ' · popular now'}` : 'Nothing found, try another word';
+  $('#wsMore').hidden = r.items.length === 0;
+}
+function renderDownload(d) {
+  const b = $(`[data-get="${CSS.escape(d.key)}"]`);
+  if (d.error) { if (b) { b.disabled = false; b.textContent = 'Retry'; } toast(d.error); return; }
+  if (!b) return;
+  if (d.done) { $$('.get.done').forEach(x => { x.classList.remove('done'); x.textContent = 'Set as wallpaper'; }); b.disabled = false; b.classList.add('done'); b.textContent = '✓ On your desktop'; }
+  else { b.disabled = true; b.textContent = d.pct < 0 ? 'Downloading…' : `Downloading ${d.pct}%`; }
+}
+function toast(msg, ok) {
+  $('#toast').textContent = msg; $('#toast').classList.toggle('ok', !!ok); $('#toast').classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => $('#toast').classList.remove('show'), 4500);
+}
+// the key card only shows when asked for, or when a stock tab is picked without its key
+const updateKeyCard = () => {
+  const missing = (ws.source === 'pexels' && !keys.pexels) || (ws.source === 'pixabay' && !keys.pixabay);
+  $('#wsKeys').hidden = !($('#wsKeys').dataset.forced || missing);
+};
+function showKeys(s) {
+  keys = { pexels: s.hasPexels, pixabay: s.hasPixabay };
+  $('#kPexels').placeholder = keys.pexels ? '✓ saved (paste to replace)' : 'Paste Pexels API key';
+  $('#kPixabay').placeholder = keys.pixabay ? '✓ saved (paste to replace)' : 'Paste Pixabay API key';
+  $('#keyState').textContent = `Pexels ${keys.pexels ? 'connected' : 'not set'} · Pixabay ${keys.pixabay ? 'connected' : 'not set'}`;
+  updateKeyCard();
+}
+
+$('#wsGo').onclick = () => wsSearch(false);
+$('#wsQ').onkeydown = e => { if (e.key === 'Enter') wsSearch(false); };
+$('#wsMore').onclick = () => wsSearch(true);
+$$('[data-src]').forEach(b => b.onclick = () => {
+  ws.source = b.dataset.src; $$('[data-src]').forEach(x => x.classList.toggle('on', x === b));
+  $('#wsHelp').textContent = HELP[ws.source]; updateKeyCard(); wsSearch(false);
+});
+$('[data-src="wallhaven"]').classList.add('on');
+$('#saveKeys').onclick = () => {
+  const p = $('#kPexels').value.trim(), x = $('#kPixabay').value.trim(), msg = {};
+  if (p) msg.pexels = p; if (x) msg.pixabay = x;
+  if (!p && !x) return toast('Paste at least one key first.');
+  send('keys', msg); $('#kPexels').value = $('#kPixabay').value = ''; delete $('#wsKeys').dataset.forced;
+  setTimeout(() => wsSearch(false), 300); // search again with the new key
+};
+$('#manageKeys').onclick = () => { $('#wsKeys').dataset.forced = '1'; $('#wsKeys').hidden = false; $('#kPexels').focus(); };
+$('[data-go="workshop"]').addEventListener('click', () => { if (!ws.started) wsSearch(false); }); // Wallhaven needs no key
+
+document.addEventListener('click', e => {
+  const tag = e.target.closest('[data-tag]'); if (tag) { $('#wsQ').value = tag.dataset.tag; wsSearch(false); return; }
+  const site = e.target.closest('[data-browse]'); if (site) { send('browse', { site: site.dataset.browse }); return; }
+  const get = e.target.closest('[data-get]'); if (get && !get.disabled) { get.disabled = true; get.textContent = 'Starting…'; send('wsGet', { key: get.dataset.get }); return; }
+  const open = e.target.closest('[data-open]'); if (open && open.dataset.open) send('open', { url: open.dataset.open });
+});
+// hover a card to play its preview clip
+document.addEventListener('mouseover', e => {
+  const t = e.target.closest('.thumb'); if (!t || t.dataset.playing) return;
+  const v = t.querySelector('video'); if (!t.dataset.preview) return;
+  t.dataset.playing = '1'; if (!v.src) v.src = t.dataset.preview;
+  v.play().then(() => v.classList.add('play')).catch(() => {});
+});
+document.addEventListener('mouseout', e => {
+  const t = e.target.closest('.thumb'); if (!t || t.contains(e.relatedTarget)) return;
+  delete t.dataset.playing; const v = t.querySelector('video'); v.pause(); v.classList.remove('play');
+});
+
+chrome.webview.addEventListener('message', e => {
+  if (e.data.workshop) renderWorkshop(e.data.workshop);
+  else if (e.data.download) renderDownload(e.data.download);
+  else if (e.data.notice) toast(e.data.notice, !e.data.bad);
+  else { render(e.data); showKeys(e.data); }
+});
+send('state');
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- the Windows SDK version gives access to the lock screen API (Windows.System.UserProfile.LockScreen) -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <ApplicationIcon>assets\app.ico</ApplicationIcon>
+    <Product>Astra Desk</Product>
+    <AssemblyTitle>Astra Desk</AssemblyTitle>
+    <Version>1.0.1</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- plays video/gif wallpapers; the runtime ships with Windows 11 -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- embedded so the published app is a single .exe -->
+    <EmbeddedResource Include="ui.html" LogicalName="ui.html" />
+    <EmbeddedResource Include="assets\app.ico" LogicalName="app.ico" />
+  </ItemGroup>
+</Project>
